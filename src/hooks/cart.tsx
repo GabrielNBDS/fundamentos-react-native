@@ -23,30 +23,113 @@ interface CartContext {
   decrement(id: string): void;
 }
 
-const CartContext = createContext<CartContext | null>(null);
+const CartContext = createContext<CartContext>({} as CartContext);
 
 const CartProvider: React.FC = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const items = await AsyncStorage.getItem('Products');
+
+      if (items) {
+        setProducts(JSON.parse(items));
+      }
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
+  const addToCart = useCallback(
+    async (product: Omit<Product, 'quantity'>) => {
+      const duplicated = products.findIndex(
+        element => element.id === product.id,
+      );
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+      if (duplicated === -1) {
+        const { id, image_url, price, title } = product;
+        const newProduct: Product = {
+          id,
+          image_url,
+          price,
+          title,
+          quantity: 1,
+        };
+        setProducts([...products, newProduct]);
+      } else {
+        const items = products.map(element => {
+          if (product.id === element.id) {
+            const { id, image_url, price, title, quantity } = element;
+            const newProduct: Product = {
+              id,
+              image_url,
+              price,
+              title,
+              quantity: quantity + 1,
+            };
+            return newProduct;
+          }
+          return element;
+        });
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+        setProducts(items);
+      }
+      await AsyncStorage.setItem('Products', JSON.stringify(products));
+    },
+    [products],
+  );
+
+  const increment = useCallback(
+    async id => {
+      const items = products.map(element => {
+        if (id === element.id) {
+          const { id: elementId, image_url, price, title, quantity } = element;
+          const newProduct: Product = {
+            id: elementId,
+            image_url,
+            price,
+            title,
+            quantity: quantity + 1,
+          };
+          return newProduct;
+        }
+        return element;
+      });
+
+      setProducts(items);
+
+      await AsyncStorage.setItem('Products', JSON.stringify(products));
+    },
+    [products],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      const items = products.map(element => {
+        if (id === element.id) {
+          const { id: elementId, image_url, price, title, quantity } = element;
+          const newProduct: Product = {
+            id: elementId,
+            image_url,
+            price,
+            title,
+            quantity: quantity - 1,
+          };
+
+          if (newProduct.quantity > 0) {
+            return newProduct;
+          }
+          return '';
+        }
+        return element;
+      });
+
+      setProducts(items);
+
+      await AsyncStorage.setItem('Products', JSON.stringify(products));
+    },
+    [products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
